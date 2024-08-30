@@ -79,6 +79,7 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 			Args:         args,
 			SchedCore:    b.schedCore,
 		})
+	log.G(ctx).Info("构建 exec shim调用------->", b.runtime, "###", b.bundle.Path, "###", opts, "###", args, "###", b.schedCore)
 	if err != nil {
 		return nil, err
 	}
@@ -113,10 +114,13 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 			log.G(ctx).WithError(err).Error("copy shim log")
 		}
 	}()
+	//exec执行真正是在这里执行
+	log.G(ctx).Info("exec shim开始调用------->")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", out, err)
 	}
+	// exec调用containerd-shim解析标准输出获取返回值如：unix:///run/containerd/s/c1de1e37994956b2b4ee802a3556de1701fc1eeb4525bd013b71b44bec00ccfe
 	response := bytes.TrimSpace(out)
 
 	onCloseWithShimLog := func() {
@@ -125,15 +129,26 @@ func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ 
 		f.Close()
 	}
 	// Save runtime binary path for restore.
+	// shim运行时写入到如下文件中：
+	// /run/containerd/io.containerd.runtime.v2.task/moby/06d04a4c035f5a0a6b53a1ba7e51995564b1ffb78f4acd8bc4511cf08cf602d6/shim-binary-path
 	if err := os.WriteFile(filepath.Join(b.bundle.Path, "shim-binary-path"), []byte(b.runtime), 0600); err != nil {
 		return nil, err
 	}
 
+	//
+	/**
+	解析containerd-shim返回的结果，即containerd-shim创建的本地套接字，用于后续containerd和containerd-shim创建ttrpc通信
+
+	unix:///run/containerd/s/87b824a4f57c0ec3ad871e365cb830d73f066099997821c737af36f30c536db4
+
+	如：/var/run/containerd/s/fed46ec07ca1086999d44bdc22b1d107103b43cf681257acd0da6f613f87582a
+	*/
 	params, err := parseStartResponse(ctx, response)
 	if err != nil {
 		return nil, err
 	}
 
+	//和containerd-shim进程建立连接使用ttrpc协议通信
 	conn, err := makeConnection(ctx, params, onCloseWithShimLog)
 	if err != nil {
 		return nil, err

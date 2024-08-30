@@ -24,6 +24,11 @@ import (
 
 // SetSubreaper sets the value i as the subreaper setting for the calling process
 func SetSubreaper(i int) error {
+	/**
+	subreaper, 自linux3.4内核起有的一个系统调用，subreaper 由名字可得是一个子进程的收割者,
+	意思就是通过PR_SET_CHILD_SUBREAPER这个系统调用便能把一个进程设置为祖先进程与init进程一样可以收养孤儿进程
+	而子进程被收养的方式是先会被自己最近的祖先先收养。
+	*/
 	return unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, uintptr(i), 0, 0, 0)
 }
 

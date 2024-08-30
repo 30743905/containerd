@@ -60,6 +60,7 @@ type pauseService struct {
 var _ api.TTRPCSandboxService = (*pauseService)(nil)
 
 func (p *pauseService) RegisterTTRPC(server *ttrpc.Server) error {
+	log.Info("pause service RegisterTTRPC---------->")
 	api.RegisterTTRPCSandboxService(server, p)
 	return nil
 }

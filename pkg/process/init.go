@@ -22,9 +22,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -114,7 +116,7 @@ func (p *Init) Create(ctx context.Context, r *CreateConfig) error {
 		pio     *processIO
 		pidFile = newPidFile(p.Bundle)
 	)
-
+	logrus.Info("r.Terminal---------->", r.Terminal)
 	if r.Terminal {
 		if socket, err = runc.NewTempConsoleSocket(); err != nil {
 			return fmt.Errorf("failed to create OCI runtime console socket: %w", err)
@@ -126,9 +128,15 @@ func (p *Init) Create(ctx context.Context, r *CreateConfig) error {
 		}
 		p.io = pio
 	}
+	logrus.Info("r.Checkpoint---------->", r.Checkpoint)
 	if r.Checkpoint != "" {
 		return p.createCheckpointedState(r, pidFile)
 	}
+	/**
+	存储容器1号进程在宿主机上的PID
+	/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/init.pid
+	*/
+	logrus.Info("pidFile.Path()---------->", pidFile.Path())
 	opts := &runc.CreateOpts{
 		PidFile:      pidFile.Path(),
 		NoPivot:      p.NoPivotRoot,
@@ -140,6 +148,31 @@ func (p *Init) Create(ctx context.Context, r *CreateConfig) error {
 	if socket != nil {
 		opts.ConsoleSocket = socket
 	}
+	/**
+		args := []string{"create", "--bundle", bundle}
+	if opts != nil {
+		oargs, err := opts.args()
+		if err != nil {
+			return err
+		}
+		args = append(args, oargs...)
+	}
+	*/
+	oargs, _ := args(opts)
+	/**
+	90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+	/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+	[--pid-file /run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/init.pid]
+	*/
+	logrus.Info("p.runtime.Create---------->", r.ID, r.Bundle, oargs)
+	/**
+	runc
+	*/
+	logrus.Info("p.runtime.Command---------->", p.runtime.Command)
+	/**
+	[--root /var/run/docker/runtime-runc/moby --log /run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/log.json --log-format json]
+	*/
+	logrus.Info("p.runtime.Command---------->", args2(p.runtime))
 	if err := p.runtime.Create(ctx, r.ID, r.Bundle, opts); err != nil {
 		return p.runtimeError(err, "OCI runtime create failed")
 	}
@@ -169,8 +202,64 @@ func (p *Init) Create(ctx context.Context, r *CreateConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to retrieve OCI runtime container pid: %w", err)
 	}
+	logrus.Info("p.pid---------->", pid)
+	//p.pid：容器1号进程宿主机上PID
 	p.pid = pid
 	return nil
+}
+
+// todo
+func args(o *runc.CreateOpts) (out []string, err error) {
+	if o.PidFile != "" {
+		abs, err := filepath.Abs(o.PidFile)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, "--pid-file", abs)
+	}
+	if o.ConsoleSocket != nil {
+		out = append(out, "--console-socket", o.ConsoleSocket.Path())
+	}
+	if o.NoPivot {
+		out = append(out, "--no-pivot")
+	}
+	if o.NoNewKeyring {
+		out = append(out, "--no-new-keyring")
+	}
+	if o.Detach {
+		out = append(out, "--detach")
+	}
+	if o.ExtraFiles != nil {
+		out = append(out, "--preserve-fds", strconv.Itoa(len(o.ExtraFiles)))
+	}
+	return out, nil
+}
+
+// todo
+func args2(r *runc.Runc) (out []string) {
+	if r.Root != "" {
+		out = append(out, "--root", r.Root)
+	}
+	if r.Debug {
+		out = append(out, "--debug")
+	}
+	if r.Log != "" {
+		out = append(out, "--log", r.Log)
+	}
+	if r.LogFormat != "" {
+		out = append(out, "--log-format", string(r.LogFormat))
+	}
+	if r.Criu != "" {
+		out = append(out, "--criu", r.Criu)
+	}
+	if r.SystemdCgroup {
+		out = append(out, "--systemd-cgroup")
+	}
+	if r.Rootless != nil {
+		// nil stands for "auto" (differs from explicit "false")
+		out = append(out, "--rootless="+strconv.FormatBool(*r.Rootless))
+	}
+	return out
 }
 
 func (p *Init) openStdin(path string) error {
@@ -252,6 +341,7 @@ func (p *Init) Status(ctx context.Context) (string, error) {
 
 // Start the init process
 func (p *Init) Start(ctx context.Context) error {
+	logrus.Info("Start Start11111---------->")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

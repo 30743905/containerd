@@ -272,6 +272,7 @@ func (s *service) Cleanup(ctx context.Context) (*taskAPI.DeleteResponse, error) 
 
 // Create a new initial process and container with the underlying OCI runtime
 func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *taskAPI.CreateTaskResponse, err error) {
+	logrus.Info("Create22222222---------->")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -303,6 +304,7 @@ func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *
 
 // Start a process
 func (s *service) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.StartResponse, error) {
+	logrus.Info("Start22222222---------->")
 	container, err := s.getContainer()
 	if err != nil {
 		return nil, err

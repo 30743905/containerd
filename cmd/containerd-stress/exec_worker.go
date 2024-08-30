@@ -35,6 +35,7 @@ type execWorker struct {
 }
 
 func (w *execWorker) exec(ctx, tctx context.Context) {
+	logrus.Info("exec_worker.exec---------->")
 	defer func() {
 		w.wg.Done()
 		logrus.Infof("worker %d finished", w.id)

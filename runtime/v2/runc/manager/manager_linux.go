@@ -76,22 +76,37 @@ func newCommand(ctx context.Context, id, containerdAddress, containerdTTRPCAddre
 	if err != nil {
 		return nil, err
 	}
+	//os.Executable()获取当前程序运行路径
+	//self=/usr/bin/containerd-shim-runc-v2
 	self, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
+	//os.Getwd()获取当前进程的工作目录
+	//cwd=/run/containerd/io.containerd.runtime.v2.task/moby/fc386f64b2b0ebff000d9a306f461630ba9d66c3e6d2213ebd8d39ec84e62fde
 	cwd, err := os.Getwd()
+	log.G(ctx).Info("self----->", self)
+	log.G(ctx).Info("cwd----->", cwd)
 	if err != nil {
 		return nil, err
 	}
+	/**
+
+	-namespace moby
+	-id fc386f64b2b0ebff000d9a306f461630ba9d66c3e6d2213ebd8d39ec84e62fde
+	-address /run/containerd/containerd.sock
+	*/
 	args := []string{
 		"-namespace", ns,
 		"-id", id,
 		"-address", containerdAddress,
 	}
+	log.G(ctx).Info("args----->", args)
 	if debug {
 		args = append(args, "-debug")
 	}
+	//在 Golang 中用于执行命令的库是 os/exec，exec.Command 函数返回一个 Cmd 对象
+	//注意，并未执行
 	cmd := exec.Command(self, args...)
 	cmd.Dir = cwd
 	cmd.Env = append(os.Environ(), "GOMAXPROCS=4")
@@ -119,11 +134,13 @@ func (m manager) Name() string {
 }
 
 func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ string, retErr error) {
+	log.G(ctx).Info("invoke----->111111111", opts)
 	cmd, err := newCommand(ctx, id, opts.Address, opts.TTRPCAddress, opts.Debug)
 	if err != nil {
 		return "", err
 	}
 	grouping := id
+	log.G(ctx).Info("grouping----->", grouping)
 	spec, err := readSpec()
 	if err != nil {
 		return "", err
@@ -134,11 +151,14 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 			break
 		}
 	}
+	log.G(ctx).Info("grouping----->", grouping)
+	//生成一个unix本地套接字地址
 	address, err := shim.SocketAddress(ctx, opts.Address, grouping)
+	log.G(ctx).Info("address----->", address)
 	if err != nil {
 		return "", err
 	}
-
+	//对上面生成的UNIX本地套接字监听
 	socket, err := shim.NewSocket(address)
 	if err != nil {
 		// the only time where this would happen is if there is a bug and the socket
@@ -169,6 +189,8 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 	}()
 
 	// make sure that reexec shim-v2 binary use the value if need
+	//向工作目录下address文件写入address地址，
+	//unix:///run/containerd/s/408144bcd644db49ac98579bb32f029b36107d612b2999be46278ad0db19f83f/address
 	if err := shim.WriteAddress("address", address); err != nil {
 		return "", err
 	}
@@ -178,20 +200,47 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 		return "", err
 	}
 
+	// ExtraFiles是空
+	log.G(ctx).Info("cmd.ExtraFiles----->", len(cmd.ExtraFiles))
+	//f.Name：unix:/run/containerd/s/3b706a9677a279e028a3c97083be1e2abf44add4e49c182beff18651824ab2d5->
+	log.G(ctx).Info("f.Name----->", f.Name())
+	/**
+
+	ExtraFiles指定额外被新进程继承的已打开文件流，不包括标准输入、标准输出、标准错误输出。
+
+	除了标准输入输出0,1,2三个文件外，你还可以将父进程的文件传给子进程，通过Cmd.ExtraFiles字段就可以。
+	比较常用的一个场景就是graceful restart,新的进程继承了老的进程监听的net.Listener,这样网络连接就不需要关闭重打开了。
+
+	file := netListener.File() // this returns a Dup()
+	path := "/path/to/executable"
+	args := []string{
+	    "-graceful"}
+	cmd := exec.Command(path, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.ExtraFiles = []*os.File{file}
+	err := cmd.Start()
+	if err != nil {
+	    log.Fatalf("gracefulRestart: Failed to launch, error: %v", err)
+	}
+
+
+	*/
 	cmd.ExtraFiles = append(cmd.ExtraFiles, f)
 
 	goruntime.LockOSThread()
+	log.G(ctx).Info("SCHED_CORE----->", os.Getenv("SCHED_CORE"))
 	if os.Getenv("SCHED_CORE") != "" {
 		if err := schedcore.Create(schedcore.ProcessGroup); err != nil {
 			return "", fmt.Errorf("enable sched core support: %w", err)
 		}
 	}
-
+	log.G(ctx).Info("begin----->")
 	if err := cmd.Start(); err != nil {
 		f.Close()
 		return "", err
 	}
-
+	log.G(ctx).Info("end----->")
 	goruntime.UnlockOSThread()
 
 	defer func() {
@@ -203,8 +252,12 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 	go cmd.Wait()
 
 	if opts, err := shim.ReadRuntimeOptions[*options.Options](os.Stdin); err == nil {
-		if opts.ShimCgroup != "" {
+		// binary_name:\"runc\" root:\"/var/run/docker/runtime-runc\"
+		log.G(ctx).Info("opts----->", opts)
+		log.G(ctx).Info("ShimCgroup----->", opts.ShimCgroup)
+		if opts.ShimCgroup != "" { //ShimCgroup空
 			if cgroups.Mode() == cgroups.Unified {
+				log.G(ctx).Info("if----->")
 				cg, err := cgroupsv2.Load(opts.ShimCgroup)
 				if err != nil {
 					return "", fmt.Errorf("failed to load cgroup %s: %w", opts.ShimCgroup, err)
@@ -213,6 +266,7 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 					return "", fmt.Errorf("failed to join cgroup %s: %w", opts.ShimCgroup, err)
 				}
 			} else {
+				log.G(ctx).Info("else----->")
 				cg, err := cgroup1.Load(cgroup1.StaticPath(opts.ShimCgroup))
 				if err != nil {
 					return "", fmt.Errorf("failed to load cgroup %s: %w", opts.ShimCgroup, err)
@@ -227,6 +281,7 @@ func (manager) Start(ctx context.Context, id string, opts shim.StartOpts) (_ str
 	if err := shim.AdjustOOMScore(cmd.Process.Pid); err != nil {
 		return "", fmt.Errorf("failed to adjust OOM score for shim: %w", err)
 	}
+	log.G(ctx).Info("address----->", address)
 	return address, nil
 }
 

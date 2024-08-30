@@ -8,6 +8,7 @@ package tasks
 
 import (
 	context "context"
+	"github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -304,6 +305,7 @@ func RegisterTasksServer(s grpc.ServiceRegistrar, srv TasksServer) {
 }
 
 func _Tasks_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Create_Handler-------->")
 	in := new(CreateTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -322,6 +324,7 @@ func _Tasks_Create_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Tasks_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Start_Handler-------->")
 	in := new(StartRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -340,6 +343,7 @@ func _Tasks_Start_Handler(srv interface{}, ctx context.Context, dec func(interfa
 }
 
 func _Tasks_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Delete_Handler-------->")
 	in := new(DeleteTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -358,6 +362,7 @@ func _Tasks_Delete_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Tasks_DeleteProcess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_DeleteProcess_Handler-------->")
 	in := new(DeleteProcessRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -376,6 +381,7 @@ func _Tasks_DeleteProcess_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _Tasks_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Get_Handler-------->")
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -394,6 +400,7 @@ func _Tasks_Get_Handler(srv interface{}, ctx context.Context, dec func(interface
 }
 
 func _Tasks_List_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_List_Handler-------->")
 	in := new(ListTasksRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -412,6 +419,7 @@ func _Tasks_List_Handler(srv interface{}, ctx context.Context, dec func(interfac
 }
 
 func _Tasks_Kill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Kill_Handler-------->")
 	in := new(KillRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -430,6 +438,7 @@ func _Tasks_Kill_Handler(srv interface{}, ctx context.Context, dec func(interfac
 }
 
 func _Tasks_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Exec_Handler-------->")
 	in := new(ExecProcessRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -448,6 +457,7 @@ func _Tasks_Exec_Handler(srv interface{}, ctx context.Context, dec func(interfac
 }
 
 func _Tasks_ResizePty_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_ResizePty_Handler-------->")
 	in := new(ResizePtyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -466,6 +476,7 @@ func _Tasks_ResizePty_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _Tasks_CloseIO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_CloseIO_Handler-------->")
 	in := new(CloseIORequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -484,6 +495,7 @@ func _Tasks_CloseIO_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _Tasks_Pause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Pause_Handler-------->")
 	in := new(PauseTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -502,6 +514,7 @@ func _Tasks_Pause_Handler(srv interface{}, ctx context.Context, dec func(interfa
 }
 
 func _Tasks_Resume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Resume_Handler-------->")
 	in := new(ResumeTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -520,6 +533,7 @@ func _Tasks_Resume_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Tasks_ListPids_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_ListPids_Handler-------->")
 	in := new(ListPidsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -538,6 +552,7 @@ func _Tasks_ListPids_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _Tasks_Checkpoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Checkpoint_Handler-------->")
 	in := new(CheckpointTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -556,6 +571,7 @@ func _Tasks_Checkpoint_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _Tasks_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Update_Handler-------->")
 	in := new(UpdateTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -574,6 +590,7 @@ func _Tasks_Update_Handler(srv interface{}, ctx context.Context, dec func(interf
 }
 
 func _Tasks_Metrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Metrics_Handler-------->")
 	in := new(MetricsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
@@ -592,6 +609,7 @@ func _Tasks_Metrics_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _Tasks_Wait_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	logrus.Info("_Tasks_Wait_Handler-------->")
 	in := new(WaitRequest)
 	if err := dec(in); err != nil {
 		return nil, err

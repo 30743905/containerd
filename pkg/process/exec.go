@@ -21,6 +21,7 @@ package process
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
@@ -164,6 +165,7 @@ func (e *execProcess) Stdio() stdio.Stdio {
 }
 
 func (e *execProcess) Start(ctx context.Context) error {
+	logrus.Info("Start Start222---------->")
 	e.mu.Lock()
 	defer e.mu.Unlock()
 

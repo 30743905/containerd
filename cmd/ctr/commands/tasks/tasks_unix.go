@@ -21,6 +21,7 @@ package tasks
 import (
 	gocontext "context"
 	"errors"
+	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"os/signal"
@@ -69,6 +70,7 @@ func HandleConsoleResize(ctx gocontext.Context, task resizer, con console.Consol
 
 // NewTask creates a new task
 func NewTask(ctx gocontext.Context, client *containerd.Client, container containerd.Container, checkpoint string, con console.Console, nullIO bool, logURI string, ioOpts []cio.Opt, opts ...containerd.NewTaskOpts) (containerd.Task, error) {
+	logrus.Info("tasks_unix.NewTask---------->")
 	stdinC := &stdinCloser{
 		stdin: os.Stdin,
 	}

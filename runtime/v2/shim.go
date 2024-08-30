@@ -211,7 +211,8 @@ type ShimInstance interface {
 
 func parseStartResponse(ctx context.Context, response []byte) (client.BootstrapParams, error) {
 	var params client.BootstrapParams
-
+	//原始内容：unix:///run/containerd/s/c1de1e37994956b2b4ee802a3556de1701fc1eeb4525bd013b71b44bec00ccfe
+	log.G(ctx).Info("parseStartResponse------->", string(response))
 	if err := json.Unmarshal(response, &params); err != nil || params.Version < 2 {
 		// Use TTRPC for legacy shims
 		params.Address = string(response)
@@ -221,7 +222,10 @@ func parseStartResponse(ctx context.Context, response []byte) (client.BootstrapP
 	if params.Version > 2 {
 		return client.BootstrapParams{}, fmt.Errorf("unsupported shim version (%d): %w", params.Version, errdefs.ErrNotImplemented)
 	}
-
+	/**
+	解析后：{0 unix:///run/containerd/s/c1de1e37994956b2b4ee802a3556de1701fc1eeb4525bd013b71b44bec00ccfe ttrpc}
+	*/
+	log.G(ctx).Info("parseStartResponse.params------->", params)
 	return params, nil
 }
 
@@ -444,6 +448,7 @@ func (s *shimTask) waitShutdown(ctx context.Context) error {
 
 // PID of the task
 func (s *shimTask) PID(ctx context.Context) (uint32, error) {
+	//和containerd-shim走ttrpc协议交互，调用taskService.Connect方法获取容器1号进程PID
 	response, err := s.task.Connect(ctx, &task.ConnectRequest{
 		ID: s.ID(),
 	})

@@ -19,6 +19,7 @@ package containerd
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"strings"
 	"syscall"
 	"time"
@@ -118,6 +119,8 @@ func (p *process) Pid() uint32 {
 
 // Start starts the exec process
 func (p *process) Start(ctx context.Context) error {
+	logrus.Info("process.Start 开始执行----------->")
+
 	r, err := p.task.client.TaskService().Start(ctx, &tasks.StartRequest{
 		ContainerID: p.task.id,
 		ExecID:      p.id,

@@ -147,6 +147,7 @@ type containerProcess struct {
 // It must be called before the caller of preStart returns, otherwise severe
 // memory leaks will occur.
 func (s *service) preStart(c *runc.Container) (handleStarted func(*runc.Container, process.Process), cleanup func()) {
+	logrus.Info("preStart---------->")
 	exits := make(map[int][]runcC.Exit)
 	s.exitSubscribers[&exits] = struct{}{}
 
@@ -247,6 +248,7 @@ func (s *service) preStart(c *runc.Container) (handleStarted func(*runc.Containe
 
 // Create a new initial process and container with the underlying OCI runtime
 func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *taskAPI.CreateTaskResponse, err error) {
+	logrus.Info("Create---------->")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -255,6 +257,9 @@ func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *
 	s.lifecycleMu.Unlock()
 	defer cleanup()
 
+	/**
+	重点
+	*/
 	container, err := runc.NewContainer(ctx, s.platform, r)
 	if err != nil {
 		return nil, err
@@ -282,18 +287,22 @@ func (s *service) Create(ctx context.Context, r *taskAPI.CreateTaskRequest) (_ *
 	proc, _ := container.Process("")
 	handleStarted(container, proc)
 
+	// container.Pid()是容器1号进程PID
+	logrus.Info("container.Pid---------->", container.Pid())
 	return &taskAPI.CreateTaskResponse{
 		Pid: uint32(container.Pid()),
 	}, nil
 }
 
 func (s *service) RegisterTTRPC(server *ttrpc.Server) error {
+	logrus.Info("task service RegisterTTRPC---------->")
 	taskAPI.RegisterTaskService(server, s)
 	return nil
 }
 
 // Start a process
 func (s *service) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.StartResponse, error) {
+	logrus.Info("Start---------->", r.ID, r.ExecID, r.String())
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -310,6 +319,9 @@ func (s *service) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.
 	s.lifecycleMu.Unlock()
 	defer cleanup()
 
+	/**
+	重点
+	*/
 	p, err := container.Start(ctx, r)
 	if err != nil {
 		handleStarted(container, p)
@@ -353,6 +365,7 @@ func (s *service) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.
 		})
 	}
 	handleStarted(container, p)
+	logrus.Info("Start---------->pid::", p.Pid())
 	return &taskAPI.StartResponse{
 		Pid: uint32(p.Pid()),
 	}, nil
@@ -360,6 +373,7 @@ func (s *service) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.
 
 // Delete the initial process and container
 func (s *service) Delete(ctx context.Context, r *taskAPI.DeleteRequest) (*taskAPI.DeleteResponse, error) {
+	logrus.Info("task service Delete---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -389,6 +403,7 @@ func (s *service) Delete(ctx context.Context, r *taskAPI.DeleteRequest) (*taskAP
 
 // Exec an additional process inside the container
 func (s *service) Exec(ctx context.Context, r *taskAPI.ExecProcessRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Exec---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -412,6 +427,7 @@ func (s *service) Exec(ctx context.Context, r *taskAPI.ExecProcessRequest) (*pty
 
 // ResizePty of a process
 func (s *service) ResizePty(ctx context.Context, r *taskAPI.ResizePtyRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service ResizePty---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -424,6 +440,7 @@ func (s *service) ResizePty(ctx context.Context, r *taskAPI.ResizePtyRequest) (*
 
 // State returns runtime state information for a process
 func (s *service) State(ctx context.Context, r *taskAPI.StateRequest) (*taskAPI.StateResponse, error) {
+	logrus.Info("task service State---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -466,6 +483,7 @@ func (s *service) State(ctx context.Context, r *taskAPI.StateRequest) (*taskAPI.
 
 // Pause the container
 func (s *service) Pause(ctx context.Context, r *taskAPI.PauseRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Pause---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -481,6 +499,7 @@ func (s *service) Pause(ctx context.Context, r *taskAPI.PauseRequest) (*ptypes.E
 
 // Resume the container
 func (s *service) Resume(ctx context.Context, r *taskAPI.ResumeRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Resume---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -496,6 +515,7 @@ func (s *service) Resume(ctx context.Context, r *taskAPI.ResumeRequest) (*ptypes
 
 // Kill a process with the provided signal
 func (s *service) Kill(ctx context.Context, r *taskAPI.KillRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Kill---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -508,6 +528,7 @@ func (s *service) Kill(ctx context.Context, r *taskAPI.KillRequest) (*ptypes.Emp
 
 // Pids returns all pids inside the container
 func (s *service) Pids(ctx context.Context, r *taskAPI.PidsRequest) (*taskAPI.PidsResponse, error) {
+	logrus.Info("task service Pids---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -543,6 +564,7 @@ func (s *service) Pids(ctx context.Context, r *taskAPI.PidsRequest) (*taskAPI.Pi
 
 // CloseIO of a process
 func (s *service) CloseIO(ctx context.Context, r *taskAPI.CloseIORequest) (*ptypes.Empty, error) {
+	logrus.Info("task service CloseIO---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -555,6 +577,7 @@ func (s *service) CloseIO(ctx context.Context, r *taskAPI.CloseIORequest) (*ptyp
 
 // Checkpoint the container
 func (s *service) Checkpoint(ctx context.Context, r *taskAPI.CheckpointTaskRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Checkpoint---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -567,6 +590,7 @@ func (s *service) Checkpoint(ctx context.Context, r *taskAPI.CheckpointTaskReque
 
 // Update a running container
 func (s *service) Update(ctx context.Context, r *taskAPI.UpdateTaskRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Update---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -579,6 +603,7 @@ func (s *service) Update(ctx context.Context, r *taskAPI.UpdateTaskRequest) (*pt
 
 // Wait for a process to exit
 func (s *service) Wait(ctx context.Context, r *taskAPI.WaitRequest) (*taskAPI.WaitResponse, error) {
+	logrus.Info("task service Wait---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -597,10 +622,12 @@ func (s *service) Wait(ctx context.Context, r *taskAPI.WaitRequest) (*taskAPI.Wa
 
 // Connect returns shim information such as the shim's pid
 func (s *service) Connect(ctx context.Context, r *taskAPI.ConnectRequest) (*taskAPI.ConnectResponse, error) {
+	logrus.Info("task service Connect---------->", r.ID)
 	var pid int
 	if container, err := s.getContainer(r.ID); err == nil {
 		pid = container.Pid()
 	}
+	logrus.Info("task service Connect resp---------->", os.Getpid(), ",")
 	return &taskAPI.ConnectResponse{
 		ShimPid: uint32(os.Getpid()),
 		TaskPid: uint32(pid),
@@ -608,6 +635,7 @@ func (s *service) Connect(ctx context.Context, r *taskAPI.ConnectRequest) (*task
 }
 
 func (s *service) Shutdown(ctx context.Context, r *taskAPI.ShutdownRequest) (*ptypes.Empty, error) {
+	logrus.Info("task service Shutdown---------->")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -624,6 +652,7 @@ func (s *service) Shutdown(ctx context.Context, r *taskAPI.ShutdownRequest) (*pt
 }
 
 func (s *service) Stats(ctx context.Context, r *taskAPI.StatsRequest) (*taskAPI.StatsResponse, error) {
+	logrus.Info("task service Stats---------->")
 	container, err := s.getContainer(r.ID)
 	if err != nil {
 		return nil, err
@@ -659,6 +688,7 @@ func (s *service) Stats(ctx context.Context, r *taskAPI.StatsRequest) (*taskAPI.
 }
 
 func (s *service) processExits() {
+	logrus.Info("task service processExits---------->")
 	for e := range s.ec {
 		// While unlikely, it is not impossible for a container process to exit
 		// and have its PID be recycled for a new container process before we
@@ -703,11 +733,13 @@ func (s *service) processExits() {
 }
 
 func (s *service) send(evt interface{}) {
+	logrus.Info("task service send---------->")
 	s.events <- evt
 }
 
 // s.mu must be locked when calling handleProcessExit
 func (s *service) handleProcessExit(e runcC.Exit, c *runc.Container, p process.Process) {
+	logrus.Info("task service handleProcessExit---------->")
 	if ip, ok := p.(*process.Init); ok {
 		// Ensure all children are killed
 		if runc.ShouldKillAllOnExit(s.context, c.Bundle) {
@@ -729,6 +761,7 @@ func (s *service) handleProcessExit(e runcC.Exit, c *runc.Container, p process.P
 }
 
 func (s *service) getContainerPids(ctx context.Context, container *runc.Container) ([]uint32, error) {
+	logrus.Info("task service getContainerPids---------->")
 	p, err := container.Process("")
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
@@ -745,6 +778,7 @@ func (s *service) getContainerPids(ctx context.Context, container *runc.Containe
 }
 
 func (s *service) forward(ctx context.Context, publisher shim.Publisher) {
+	logrus.Info("task service forward---------->")
 	ns, _ := namespaces.Namespace(ctx)
 	ctx = namespaces.WithNamespace(context.Background(), ns)
 	for e := range s.events {
@@ -757,6 +791,7 @@ func (s *service) forward(ctx context.Context, publisher shim.Publisher) {
 }
 
 func (s *service) getContainer(id string) (*runc.Container, error) {
+	logrus.Info("task service getContainer---------->")
 	s.mu.Lock()
 	container := s.containers[id]
 	s.mu.Unlock()
@@ -769,6 +804,7 @@ func (s *service) getContainer(id string) (*runc.Container, error) {
 // initialize a single epoll fd to manage our consoles. `initPlatform` should
 // only be called once.
 func (s *service) initPlatform() error {
+	logrus.Info("task service initPlatform---------->")
 	if s.platform != nil {
 		return nil
 	}

@@ -103,6 +103,7 @@ func NewSocket(address string) (*net.UnixListener, error) {
 			return nil, fmt.Errorf("mkdir failed for %s: %w", path, err)
 		}
 	}
+	//UNIX本地套接字监听
 	l, err := net.Listen("unix", path)
 	if err != nil {
 		return nil, err

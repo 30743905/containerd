@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -173,7 +174,26 @@ type local struct {
 	warnings  warning.Service
 }
 
+// todo
+func openLog(ctx context.Context) (io.ReadWriteCloser, error) {
+	/**
+	打开文件 - os.OpenFile
+	以重写方式打开fileName指定的文件，若不存在则创建该文件：
+	logFile, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	*/
+	return os.OpenFile("/data/containerd_debug.log", os.O_RDWR|os.O_CREATE, 0777)
+	//return fifo.OpenFifo(ctx, filepath.Join("/data/", "containerd.log"), unix.O_RDWR|unix.O_CREAT, 0700)
+	//return fifo.OpenFifoDup2(ctx, "log", unix.O_WRONLY, 0700, int(os.Stderr.Fd()))
+}
+
 func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.CallOption) (*api.CreateTaskResponse, error) {
+	//todo 设置log位置
+	f, err := openLog(ctx)
+	log.G(ctx).Logger.SetOutput(f)
+
+	log.G(ctx).Info("开始执行local.Create------->")
+	log.G(ctx).Info("开始执行local.Create stack------->", string(debug.Stack()))
+
 	container, err := l.getContainer(ctx, r.ContainerID)
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
@@ -243,15 +263,23 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 	if err == nil {
 		return nil, errdefs.ToGRPC(fmt.Errorf("task %s: %w", r.ContainerID, errdefs.ErrAlreadyExists))
 	}
+
+	log.G(ctx).Info("local.Create rtime.Create begin------->", r.ContainerID, ",", opts)
 	c, err := rtime.Create(ctx, r.ContainerID, opts)
+	log.G(ctx).Info("local.Create rtime.Create finish------->")
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
+	log.G(ctx).Info("local.Create runtime------->", container.Runtime.Name)
 	labels := map[string]string{"runtime": container.Runtime.Name}
 	if err := l.monitor.Monitor(c, labels); err != nil {
 		return nil, fmt.Errorf("monitor task: %w", err)
 	}
+	//会调用taskService.Connect方法获取容器1号进程PID
 	pid, err := c.PID(ctx)
+	//pid：容器1号进程PID ContainerID：容器ID
+	//如： 62603,c15008582c07f0ada9809bd0cdc6dff8598628373846cf5b5bf4530515bf99f0
+	log.G(ctx).Info("local.Create.CreateTaskResponse------->", pid, ",", r.ContainerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task pid: %w", err)
 	}
@@ -272,20 +300,33 @@ func (l *local) emitRuntimeWarning(ctx context.Context, runtime string) {
 	}
 }
 func (l *local) Start(ctx context.Context, r *api.StartRequest, _ ...grpc.CallOption) (*api.StartResponse, error) {
+	log.G(ctx).Info("local.Start 开始执行----------->")
 	t, err := l.getTask(ctx, r.ContainerID)
 	if err != nil {
 		return nil, err
 	}
+
+	//v2.shimTask
+	log.G(ctx).Info("local.Start runtime.Process----------->", fmt.Sprintf("%T", t))
 	p := runtime.Process(t)
+	//r.ExecID为空
+	log.G(ctx).Info("local.Start r.ExecID----------->", r.ExecID)
 	if r.ExecID != "" {
 		if p, err = t.Process(ctx, r.ExecID); err != nil {
 			return nil, errdefs.ToGRPC(err)
 		}
 	}
+	/**
+	走ttrpc协议调用containerd-shim组件Start()方法
+	*/
+	log.G(ctx).Info("local.Start p.Start(ctx)----------->")
 	if err := p.Start(ctx); err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
+	log.G(ctx).Info("local.Start p.Start(ctx) end----------->")
 	state, err := p.State(ctx)
+	//state.Pid是容器1号进程PID
+	log.G(ctx).Info("local.Start p.State(ctx) end----------->", state.Pid)
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}

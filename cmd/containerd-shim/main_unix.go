@@ -72,7 +72,7 @@ var (
 )
 
 func parseFlags() {
-	flag.BoolVar(&debugFlag, "debug", false, "enable debug output in logs")
+	flag.BoolVar(&debugFlag, "debug", true, "enable debug output in logs")
 	flag.BoolVar(&versionFlag, "v", false, "show the shim version and exit")
 	flag.StringVar(&namespaceFlag, "namespace", "", "namespace that owns the shim")
 	flag.StringVar(&socketFlag, "socket", "", "socket path to serve")

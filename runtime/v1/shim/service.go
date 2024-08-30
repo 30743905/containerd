@@ -81,7 +81,9 @@ func NewService(config Config, publisher events.Publisher) (*Service, error) {
 	if config.Namespace == "" {
 		return nil, fmt.Errorf("shim namespace cannot be empty")
 	}
+
 	ctx := namespaces.WithNamespace(context.Background(), config.Namespace)
+	log.G(ctx).Info("*************>%s,,%s,,%s", config.Namespace, config.Path, config.RuntimeRoot)
 	ctx = log.WithLogger(ctx, logrus.WithFields(log.Fields{
 		"namespace": config.Namespace,
 		"path":      config.Path,

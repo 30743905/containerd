@@ -167,6 +167,7 @@ func parseFlags() {
 
 	flag.Parse()
 	action = flag.Arg(0)
+
 }
 
 func setRuntime() {
@@ -228,6 +229,7 @@ func (stm shimToManager) Name() string {
 }
 
 func (stm shimToManager) Start(ctx context.Context, id string, opts StartOpts) (string, error) {
+	log.G(ctx).Info("invoke----->22222", opts)
 	opts.ID = id
 	return stm.shim.StartShim(ctx, opts)
 }
@@ -278,29 +280,73 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 
 	setRuntime()
 
+	/**
+	flag.BoolVar(&debugFlag, "debug", false, "enable debug output in logs")
+	flag.BoolVar(&versionFlag, "v", false, "show the shim version and exit")
+	flag.StringVar(&namespaceFlag, "namespace", "", "namespace that owns the shim")
+	flag.StringVar(&id, "id", "", "id of the task")
+	flag.StringVar(&socketFlag, "socket", "", "socket path to serve")
+	flag.StringVar(&bundlePath, "bundle", "", "path to the bundle if not workdir")
+
+	flag.StringVar(&addressFlag, "address", "", "grpc address back to main containerd")
+	flag.StringVar(&containerdBinaryFlag, "publish-binary", "",
+		fmt.Sprintf("path to publish binary (used for publishing events), but %s will ignore this flag, please use the %s env", os.Args[0], ttrpcAddressEnv),
+	)
+
+	*/
+
+	if !config.NoSetupLogger {
+		ctx, err := setLogger(ctx, id)
+		if err != nil {
+			return err
+		}
+		log.G(ctx).Info("*******************>>>>111222222222222222222222222222")
+	}
+	log.G(ctx).Info("config----->", config)
+
+	log.G(ctx).Info("pid----->", os.Getpid())
+	log.G(ctx).Info("ppid----->", os.Getppid())
+	wd, _ := os.Getwd()
+	log.G(ctx).Info("wd----->", wd)
+	executable, _ := os.Executable()
+	log.G(ctx).Info("executable----->", executable)
+
 	signals, err := setupSignals(config)
 	if err != nil {
 		return err
 	}
 
 	if !config.NoSubreaper {
+		/**
+		设置子进程收割者
+		意思就是通过PR_SET_CHILD_SUBREAPER这个系统调用便能把一个进程设置为祖先进程与init进程一样可以收养孤儿进程
+		而子进程被收养的方式是先会被自己最近的祖先先收养。
+		*/
 		if err := subreaper(); err != nil {
 			return err
 		}
 	}
 
 	ttrpcAddress := os.Getenv(ttrpcAddressEnv)
+	// /run/containerd/containerd.sock.ttrpc
+	log.G(ctx).Info("ttrpcAddress----->", ttrpcAddress)
+
 	publisher, err := NewPublisher(ttrpcAddress)
 	if err != nil {
 		return err
 	}
 	defer publisher.Close()
-
+	// namespaceFlag = moby
+	log.G(ctx).Info("namespaceFlag----->", namespaceFlag)
 	ctx = namespaces.WithNamespace(ctx, namespaceFlag)
+	// bundlePath为空 debugFlag=false
 	ctx = context.WithValue(ctx, OptsKey{}, Opts{BundlePath: bundlePath, Debug: debugFlag})
+	log.G(ctx).Info("bundlePath----->", bundlePath)
+	log.G(ctx).Info("debugFlag----->", debugFlag)
 	ctx, sd := shutdown.WithShutdown(ctx)
 	defer sd.Shutdown()
 
+	//manager这里是不为nil的
 	if manager == nil {
 		service, err := initFunc(ctx, id, publisher, sd.Shutdown)
 		if err != nil {
@@ -322,9 +368,10 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 		}
 	}
 
+	log.G(ctx).Info("action----->", action)
 	// Handle explicit actions
 	switch action {
-	case "delete":
+	case "delete": //stop容器调用
 		if debugFlag {
 			logrus.SetLevel(logrus.DebugLevel)
 		}
@@ -349,30 +396,44 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 			return err
 		}
 		return nil
-	case "start":
+	case "start": //start容器时调用
 		opts := StartOpts{
 			Address:      addressFlag,
 			TTRPCAddress: ttrpcAddress,
 			Debug:        debugFlag,
 		}
 
+		/**
+		{
+		Address: /run/containerd/containerd.sock
+		TTRPCAddress: /run/containerd/containerd.sock.ttrpc
+		Debug: false}
+		*/
+		log.G(ctx).Info("opts----->", opts)
+		log.G(ctx).Info("id----->", id)
 		address, err := manager.Start(ctx, id, opts)
 		if err != nil {
 			return err
 		}
+
+		/**
+		address: unix:///run/containerd/s/87b824a4f57c0ec3ad871e365cb830d73f066099997821c737af36f30c536db4
+		*/
+		log.G(ctx).Info("address----->", address)
 		if _, err := os.Stdout.WriteString(address); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if !config.NoSetupLogger {
+	/*	if !config.NoSetupLogger {
 		ctx, err = setLogger(ctx, id)
 		if err != nil {
 			return err
 		}
-	}
-
+		log.G(ctx).Info("*******************>>>>123")
+	}*/
+	log.G(ctx).Info("aaaaaaaaaaabbb")
 	plugin.Register(&plugin.Registration{
 		Type: plugin.InternalPlugin,
 		ID:   "shutdown",
@@ -426,11 +487,13 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 		// }
 
 		result := p.Init(initContext)
+		log.G(ctx).Info("result--------->", result)
 		if err := initialized.Add(result); err != nil {
 			return fmt.Errorf("could not add plugin result to plugin set: %w", err)
 		}
 
 		instance, err := result.Instance()
+		log.G(ctx).Info("instance--------->", instance)
 		if err != nil {
 			if plugin.IsSkipPlugin(err) {
 				log.G(ctx).WithError(err).WithField("type", p.Type).Infof("skip loading plugin %q...", id)
@@ -440,7 +503,7 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 		}
 
 		if src, ok := instance.(ttrpcService); ok {
-			logrus.WithField("id", id).Debug("registering ttrpc service")
+			logrus.WithField("id", id).Info("registering ttrpc service")
 			ttrpcServices = append(ttrpcServices, src)
 
 		}
@@ -461,6 +524,7 @@ func run(ctx context.Context, manager Manager, initFunc Init, name string, confi
 	}
 
 	for _, srv := range ttrpcServices {
+		log.G(ctx).Info("注册RegisterTTRPC--------->")
 		if err := srv.RegisterTTRPC(server); err != nil {
 			return fmt.Errorf("failed to register service: %w", err)
 		}

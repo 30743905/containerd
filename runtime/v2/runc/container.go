@@ -61,6 +61,7 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 
 	var pmounts []process.Mount
 	for _, m := range r.Rootfs {
+		logrus.Info("Rootfs---------->", m.Type, m.Source, m.Target, m.Options)
 		pmounts = append(pmounts, process.Mount{
 			Type:    m.Type,
 			Source:  m.Source,
@@ -71,6 +72,7 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 
 	rootfs := ""
 	if len(pmounts) > 0 {
+		//创建工作空间下rootfs目录
 		rootfs = filepath.Join(r.Bundle, "rootfs")
 		if err := os.Mkdir(rootfs, 0711); err != nil && !os.IsExist(err) {
 			return nil, err
@@ -90,11 +92,26 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 		ParentCheckpoint: r.ParentCheckpoint,
 		Options:          r.Options,
 	}
+	/**
+	{
+		90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+		/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+		runc
+		[]
+		false
+		/var/run/docker/containerd/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b-stdout
+		/var/run/docker/containerd/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b-stderr
+		[containerd.runc.v1.Options]:{binary_name:\"runc\" root:\"/var/run/docker/runtime-runc\"}
+	}
+	*/
+	logrus.Info("config---------->", config)
 
+	//opts配置写入到工作目录下config.json文件中
 	if err := WriteOptions(r.Bundle, opts); err != nil {
 		return nil, err
 	}
 	// For historical reason, we write opts.BinaryName as well as the entire opts
+	//运行时写入到工作空间runtime文件中
 	if err := WriteRuntime(r.Bundle, opts.BinaryName); err != nil {
 		return nil, err
 	}
@@ -119,6 +136,7 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 		return nil, fmt.Errorf("failed to mount rootfs component: %w", err)
 	}
 
+	//重点
 	p, err := newInit(
 		ctx,
 		r.Bundle,
@@ -132,6 +150,7 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
+	//关键
 	if err := p.Create(ctx, config); err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
@@ -142,11 +161,14 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 		processes:       make(map[string]process.Process),
 		reservedProcess: make(map[string]struct{}),
 	}
+	//容器中1号进程在宿主机PID
+	logrus.Info("pid---------->", p.Pid())
 	pid := p.Pid()
 	if pid > 0 {
 		var cg interface{}
 		if cgroups.Mode() == cgroups.Unified {
 			g, err := cgroupsv2.PidGroupPath(pid)
+			logrus.Info("cgroups.Mode() == cgroups.Unified---------->", g)
 			if err != nil {
 				logrus.WithError(err).Errorf("loading cgroup2 for %d", pid)
 				return container, nil
@@ -156,6 +178,11 @@ func NewContainer(ctx context.Context, platform stdio.Platform, r *task.CreateTa
 				logrus.WithError(err).Errorf("loading cgroup2 for %d", pid)
 			}
 		} else {
+			/**
+			/proc/%d/cgroup   /proc/72537/cgroup
+			每个进程在/proc/[pid]目录下有一个cgroup文件，这个文件内保存了一个进程和cgroup的对应关系
+			*/
+			logrus.Info("cgroups.Mode() else---------->", cgroup1.PidPath(pid))
 			cg, err = cgroup1.Load(cgroup1.PidPath(pid))
 			if err != nil {
 				logrus.WithError(err).Errorf("loading cgroup for %d", pid)
@@ -210,11 +237,20 @@ func ReadRuntime(path string) (string, error) {
 
 // WriteRuntime writes the runtime information into the path
 func WriteRuntime(path, runtime string) error {
+	logrus.Info("write file---------->", filepath.Join(path, "runtime"), runtime)
 	return os.WriteFile(filepath.Join(path, "runtime"), []byte(runtime), 0600)
 }
 
 func newInit(ctx context.Context, path, workDir, namespace string, platform stdio.Platform,
 	r *process.CreateConfig, options *options.Options, rootfs string) (*process.Init, error) {
+	/**
+	/var/run/docker/runtime-runc
+	/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+	moby
+	runc
+	false"
+	*/
+	logrus.Info("newInit.NewRunc---------->", options.Root, path, namespace, options.BinaryName, options.SystemdCgroup)
 	runtime := process.NewRunc(options.Root, path, namespace, options.BinaryName, options.SystemdCgroup)
 	p := process.New(r.ID, runtime, stdio.Stdio{
 		Stdin:    r.Stdin,
@@ -222,6 +258,14 @@ func newInit(ctx context.Context, path, workDir, namespace string, platform stdi
 		Stderr:   r.Stderr,
 		Terminal: r.Terminal,
 	})
+	/**
+	/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b
+	&{0xc0001acf30}
+	/run/containerd/io.containerd.runtime.v2.task/moby/90ffaf924e347efa35e48e6caa3e65aa947fe5d4d27c4423b53fc078c557589b/work
+	0
+	0
+	*/
+	logrus.Info("newInit.p---------->", r.Bundle, platform, rootfs, workDir, options.IoUid, options.IoGid)
 	p.Bundle = r.Bundle
 	p.Platform = platform
 	p.Rootfs = rootfs
@@ -368,6 +412,7 @@ func (c *Container) Start(ctx context.Context, r *task.StartRequest) (process.Pr
 		var cg interface{}
 		if cgroups.Mode() == cgroups.Unified {
 			g, err := cgroupsv2.PidGroupPath(p.Pid())
+			logrus.Info("Start cgroups.Mode()---------->", g)
 			if err != nil {
 				logrus.WithError(err).Errorf("loading cgroup2 for %d", p.Pid())
 			}
@@ -376,6 +421,7 @@ func (c *Container) Start(ctx context.Context, r *task.StartRequest) (process.Pr
 				logrus.WithError(err).Errorf("loading cgroup2 for %d", p.Pid())
 			}
 		} else {
+			logrus.Info("Start cgroups.Mode() else---------->", p.Pid())
 			cg, err = cgroup1.Load(cgroup1.PidPath(p.Pid()))
 			if err != nil {
 				logrus.WithError(err).Errorf("loading cgroup for %d", p.Pid())

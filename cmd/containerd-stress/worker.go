@@ -89,6 +89,7 @@ func (w *ctrWorker) getFailures() int {
 }
 
 func (w *ctrWorker) runContainer(ctx context.Context, id string) (err error) {
+	logrus.Info("worker.runContainer---------->")
 	// fix up cgroups path for a default config
 	c, err := w.client.NewContainer(ctx, id,
 		containerd.WithSnapshotter(w.snapshotter),

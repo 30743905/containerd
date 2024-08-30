@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,6 +209,7 @@ func (c *container) Image(ctx context.Context) (Image, error) {
 }
 
 func (c *container) NewTask(ctx context.Context, ioCreate cio.Creator, opts ...NewTaskOpts) (_ Task, err error) {
+	logrus.Info("开始执行container_NewTask---------->")
 	i, err := ioCreate(c.id)
 	if err != nil {
 		return nil, err

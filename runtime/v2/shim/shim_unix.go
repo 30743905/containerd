@@ -28,7 +28,6 @@ import (
 	"syscall"
 
 	"github.com/containerd/containerd/sys/reaper"
-	"github.com/containerd/fifo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -108,5 +107,7 @@ func handleExitSignals(ctx context.Context, logger *logrus.Entry, cancel context
 }
 
 func openLog(ctx context.Context, _ string) (io.Writer, error) {
-	return fifo.OpenFifoDup2(ctx, "log", unix.O_WRONLY, 0700, int(os.Stderr.Fd()))
+	return os.OpenFile("/data/shim.stdout.log", os.O_RDWR|os.O_CREATE, 0777)
+	//return fifo.OpenFifo(ctx, filepath.Join("/data/", "shim.stdout.log"), unix.O_RDWR|unix.O_CREAT, 0700)
+	//return fifo.OpenFifoDup2(ctx, "log", unix.O_WRONLY, 0700, int(os.Stderr.Fd()))
 }

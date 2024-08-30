@@ -19,6 +19,7 @@ package main
 import (
 	"crypto"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 
 	"github.com/containerd/containerd/cmd/containerd/command"
@@ -35,6 +36,9 @@ func init() {
 }
 
 func main() {
+	f, _ := os.OpenFile("/data/containerd_debug.log", os.O_RDWR|os.O_CREATE, 0777)
+	logrus.SetOutput(f)
+
 	app := command.App()
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "containerd: %s\n", err)

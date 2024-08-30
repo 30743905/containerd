@@ -19,12 +19,6 @@ package v2
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
-
 	"github.com/containerd/containerd/containers"
 	"github.com/containerd/containerd/events/exchange"
 	"github.com/containerd/containerd/metadata"
@@ -40,6 +34,11 @@ import (
 	"github.com/containerd/log"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
 )
 
 // Config for the v2 runtime
@@ -182,6 +181,8 @@ func (m *ShimManager) ID() string {
 
 // Start launches a new shim instance
 func (m *ShimManager) Start(ctx context.Context, id string, opts runtime.CreateOpts) (_ ShimInstance, retErr error) {
+	log.G(ctx).Info("开始执行manager.Start------->", id, ",", opts.SandboxID)
+
 	bundle, err := NewBundle(ctx, m.root, m.state, id, opts.Spec)
 	if err != nil {
 		return nil, err
@@ -254,8 +255,11 @@ func (m *ShimManager) startShim(ctx context.Context, bundle *Bundle, id string, 
 	if topts == nil || topts.GetValue() == nil {
 		topts = opts.RuntimeOptions
 	}
-
+	//opts.Runtime=io.containerd.runc.v2
+	log.G(ctx).Info("startShim->opts.Runtime------->", opts.Runtime)
+	// 解析后runtimePath=/usr/bin/containerd-shim-runc-v2
 	runtimePath, err := m.resolveRuntimePath(opts.Runtime)
+	log.G(ctx).Info("startShim->runtimePath------->", runtimePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve runtime path: %w", err)
 	}
@@ -416,9 +420,24 @@ func (m *TaskManager) ID() string {
 	return fmt.Sprintf("%s.%s", plugin.RuntimePluginV2, "task")
 }
 
+// todo
+/*func openLog(ctx context.Context) (io.ReadWriteCloser, error) {
+	return os.OpenFile("/data/containerd_debug.log", syscall.O_RDWR, 0777)
+	//return fifo.OpenFifo(ctx, filepath.Join("/data/", "containerd.log"), unix.O_RDWR|unix.O_CREAT, 0700)
+	//return fifo.OpenFifoDup2(ctx, "log", unix.O_WRONLY, 0700, int(os.Stderr.Fd()))
+}*/
+
 // Create launches new shim instance and creates new task
 func (m *TaskManager) Create(ctx context.Context, taskID string, opts runtime.CreateOpts) (runtime.Task, error) {
+	//todo 设置log位置
+	//f, err := openLog(ctx)
+	//log.G(ctx).Logger.SetOutput(f)
+	log.G(ctx).Info("开始执行manager.Create------->")
+
+	//exec方式启动启动shim
+	log.G(ctx).Info("开始启动containerd-shim进程------->", opts)
 	shim, err := m.manager.Start(ctx, taskID, opts)
+	log.G(ctx).Info("完成启动containerd-shim进程------->")
 	if err != nil {
 		return nil, fmt.Errorf("failed to start shim: %w", err)
 	}
@@ -429,8 +448,10 @@ func (m *TaskManager) Create(ctx context.Context, taskID string, opts runtime.Cr
 	if err != nil {
 		return nil, err
 	}
-
+	//向containerd-shim发送Create请求
+	log.G(ctx).Info("开始向containerd-shim发送Create请求------->", opts)
 	t, err := shimTask.Create(ctx, opts)
+	log.G(ctx).Info("完成向containerd-shim发送Create请求------->")
 	if err != nil {
 		// NOTE: ctx contains required namespace information.
 		m.manager.shims.Delete(ctx, taskID)
@@ -452,7 +473,7 @@ func (m *TaskManager) Create(ctx context.Context, taskID string, opts runtime.Cr
 
 		return nil, fmt.Errorf("failed to create shim task: %w", err)
 	}
-
+	log.G(ctx).Info("manager.Create执行完成------->")
 	return t, nil
 }
 
